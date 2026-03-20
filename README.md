@@ -1,10 +1,11 @@
 ---
-title: Agente Conversacional para consulta de normativa de ingeniería clínica
-emoji: 🤖
-colorFrom: blue
-colorTo: green
+title: ChatbotNormClinic Platform
+emoji: 🏢
+colorFrom: purple
+colorTo: pink
 sdk: docker
 pinned: false
+license: mit
 ---
 
 # Agente Conversacional para consulta de normativa de ingeniería clínica
