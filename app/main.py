@@ -12,6 +12,8 @@ PROJECT_ROOT = BASE_DIR.parent
 
 FILES_DIR = PROJECT_ROOT / "files"
 
+FILES_DIR.mkdir(parents=True, exist_ok=True)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     database.ensure_tables_exist()
