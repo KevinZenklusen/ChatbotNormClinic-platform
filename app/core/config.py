@@ -20,6 +20,7 @@ RAG_FINAL_TOP_K = int(os.getenv("RAG_FINAL_TOP_K", 3))
 # LLM
 LLM_MODE = os.getenv("LLM_MODE", "local")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 LM_STUDIO_LOCAL_MODEL_NAME = os.getenv('LM_STUDIO_LOCAL_MODEL_NAME')
 LM_STUDIO_BASE_URL = os.getenv('LM_STUDIO_BASE_URL')

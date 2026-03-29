@@ -6,7 +6,7 @@ from langchain_core.language_models import BaseChatModel
 # --- Importaciones de Proveedores ---
 # Opción 1: Google (Mantenerla para fácil cambio)
 from langchain_google_genai import ChatGoogleGenerativeAI
-from app.core.config import GEMINI_API_KEY, LM_STUDIO_BASE_URL, LM_STUDIO_LOCAL_MODEL_NAME, LLM_MODE, GROQ_API_KEY
+from app.core.config import GEMINI_API_KEY, LM_STUDIO_BASE_URL, LM_STUDIO_LOCAL_MODEL_NAME, LLM_MODE, GROQ_API_KEY, GEMINI_MODEL
 # Opción 2: LLM Local (LM Studio usa la API de OpenAI)
 from langchain_openai import ChatOpenAI
 # Opción 3: Groq (Online)
@@ -30,8 +30,9 @@ def get_llm() -> BaseChatModel:
         # -----------------------------------------------------------
         
         llm = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash", 
-            google_api_key=GEMINI_API_KEY
+            model=GEMINI_MODEL, 
+            google_api_key=GEMINI_API_KEY,
+            convert_system_message_to_human=True # Agregar esta línea cuando se usen modelos lite de google. Si no, el agente falla.
         )
         print("LLM: Gemini")
 
