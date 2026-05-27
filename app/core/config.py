@@ -26,10 +26,13 @@ LM_STUDIO_LOCAL_MODEL_NAME = os.getenv('LM_STUDIO_LOCAL_MODEL_NAME')
 LM_STUDIO_BASE_URL = os.getenv('LM_STUDIO_BASE_URL')
 
 # Web Scrapping
-BASE_URL = "http://leg.msal.gov.ar/atlas/calidad_garantia.html"
+LEGISALUD_URL = "http://leg.msal.gov.ar/atlas/calidad_garantia.html"
+PNGCAM_URL = "https://www.argentina.gob.ar/salud/calidadatencionmedica/directrices"
 ALLOWED_DOMAINS = [
     "leg.msal.gov.ar",
-    "e-legis-ar.msal.gov.ar"
+    "e-legis-ar.msal.gov.ar",
+    "www.argentina.gob.ar",
+    "www.boletinoficial.gob.ar",
 ]
 
 # Almacenamiento

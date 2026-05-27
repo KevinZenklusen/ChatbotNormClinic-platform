@@ -10,6 +10,7 @@ from langchain.agents import create_agent
 from langchain_core.messages import HumanMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables.history import RunnableWithMessageHistory
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 router = APIRouter()
 
@@ -73,13 +74,6 @@ agent = create_agent(
     system_prompt=system_prompt,
 )
 
-agent_con_memoria = RunnableWithMessageHistory(
-    agent,
-    obtener_historial_de_mensajes,
-    input_messages_key="messages",
-    history_messages_key="history",
-)
-
 
 @router.post("/")
 async def multi_modal_agent_endpoint(payload: BusquedaRequest):
@@ -104,21 +98,30 @@ async def multi_modal_agent_endpoint(payload: BusquedaRequest):
     print("--- Consulta segura, ejecutando agente ---")
 
     try:
-
         consulta = payload.consulta or ""
 
         print(f"Consulta segura: {consulta}")
 
-        agent_response = await agent_con_memoria.ainvoke(
+        hist_obj = obtener_historial_de_mensajes(payload.session_id)
+        hist = hist_obj.messages
+
+        agent_response = await agent.ainvoke(
             {
                 "messages": [
+                    *hist,
                     HumanMessage(content=consulta)
                 ]
-            },
-            config={"configurable": {"session_id": payload.session_id}},
+            }
         )
 
-        respuesta = agent_response["messages"][-1].content
+        respuesta_msg = agent_response["messages"][-1]
+        respuesta = respuesta_msg.content
+
+        hist_obj.add_messages([
+            HumanMessage(content=consulta),
+            respuesta_msg
+        ])
+
         sources = []
 
         for msg in agent_response["messages"]:

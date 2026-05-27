@@ -4,15 +4,15 @@ import uuid
 from fastapi import BackgroundTasks
 import requests
 from requests.exceptions import RequestException
-from app.services.web_crawler import discover_links
-from app.core.config import BASE_URL, ALLOWED_DOMAINS
+from app.services.web_crawler import discover_links, get_urls_normativa_PNGCAM
+from app.core.config import LEGISALUD_URL, PNGCAM_URL, ALLOWED_DOMAINS
 from app.core.database_client import database
 from app.core.storage_client import save_file_in_blob_storage
 from app.ingestion.generate_embeddings import create_and_store_embeddings
 
 
-def sync_normativa(user_uid: str, background_tasks: BackgroundTasks):
-    urls = discover_links(BASE_URL, ALLOWED_DOMAINS)
+def sync_normativa_legisalud(user_uid: str, background_tasks: BackgroundTasks):
+    urls = discover_links(LEGISALUD_URL, ALLOWED_DOMAINS)
 
     for url in urls:
         try:
@@ -134,3 +134,34 @@ def update_existing_document(existing, contents, new_hash, background_tasks):
         create_and_store_embeddings,
         document_id=document_id
     )
+
+
+def sync_normativa_PNGCAM(user_uid: str, background_tasks: BackgroundTasks):
+    """
+    Sync específico para PNGCAM,
+    aplicando reglas especiales de filtrado y normalización.
+    """
+
+    visited = set()
+
+    urls = get_urls_normativa_PNGCAM(
+        base_url=PNGCAM_URL,
+        allowed_domains=ALLOWED_DOMAINS,
+        visited=visited
+    )
+
+    print(f"[sync_normativa_argentina_gob] Procesando {len(urls)} URLs")
+
+    for url in urls:
+        try:
+            process_single_url(url, user_uid, background_tasks)
+        except Exception as e:
+            print(f"[CRITICAL] Error de procesamiento inesperado {url}: {e}")
+
+
+def sync_normativa_from_single_url(user_uid: str, url: str, background_tasks: BackgroundTasks):
+
+    try:
+        process_single_url(url, user_uid, background_tasks)
+    except Exception as e:
+        print(f"[CRITICAL] Error de proceamiento inesperado {url}: {e}")

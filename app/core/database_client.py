@@ -281,6 +281,21 @@ class Database:
             )
             conn.commit()
 
+    def append_chat_history(self, session_id: str, new_messages: list):
+        with self._conn() as conn, conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO chat_history (session_id, history, updated_at)
+                VALUES (%s, %s, now())
+                ON CONFLICT (session_id)
+                DO UPDATE SET
+                    history = chat_history.history || EXCLUDED.history,
+                    updated_at = now()
+                """,
+                (session_id, json.dumps(new_messages))
+            )
+            conn.commit()
+
 
 def _create_database() -> Database:
     return Database(DB_CONFIG)
