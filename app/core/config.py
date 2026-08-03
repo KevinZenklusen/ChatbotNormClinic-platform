@@ -14,8 +14,8 @@ DB_CONFIG = {
     "password": os.environ.get("DB_PASSWORD", "postgres")
 }
 
-RAG_RETRIEVAL_TOP_K = int(os.getenv("RAG_RETRIEVAL_TOP_K", 10))
-RAG_FINAL_TOP_K = int(os.getenv("RAG_FINAL_TOP_K", 3))
+RAG_RETRIEVAL_TOP_K = int(os.getenv("RAG_RETRIEVAL_TOP_K", 20))
+RAG_FINAL_TOP_K = int(os.getenv("RAG_FINAL_TOP_K", 10))
 
 # LLM
 LLM_MODE = os.getenv("LLM_MODE", "local")

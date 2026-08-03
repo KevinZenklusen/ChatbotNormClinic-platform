@@ -45,8 +45,9 @@ def _normalize_message(msg: BaseMessage) -> BaseMessage:
 
 class DatabaseChatMessageHistory(BaseChatMessageHistory):
 
-    def __init__(self, session_id: str):
+    def __init__(self, session_id: str, user_id: str):
         self.session_id = session_id
+        self.user_id = user_id
 
     @property
     def messages(self) -> List[BaseMessage]:
@@ -55,9 +56,6 @@ class DatabaseChatMessageHistory(BaseChatMessageHistory):
         msgs = messages_from_dict(history)
 
         normalized = [_normalize_message(m) for m in msgs]
-
-        print("HISTORIAL NORMALIZADO")
-        print(normalized)
 
         return normalized
 
@@ -79,7 +77,7 @@ class DatabaseChatMessageHistory(BaseChatMessageHistory):
 
         new_messages = messages_to_dict(unique_messages)
 
-        database.append_chat_history(self.session_id, new_messages)
+        database.append_chat_history(user_id=self.user_id, session_id=self.session_id, new_messages=new_messages)
 
     def clear(self) -> None:
         database.delete_chat_history(self.session_id)

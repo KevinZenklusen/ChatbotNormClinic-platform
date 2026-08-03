@@ -1,7 +1,7 @@
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, NavigableString
 from urllib.parse import urljoin, urlparse
-from typing import List, Set, Optional
+from typing import List, Set, Optional, Tuple
 
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -39,21 +39,131 @@ def is_allowed_domain(netloc: str, allowed_domains: List[str]) -> bool:
     return any(netloc.endswith(domain) for domain in allowed_domains)
 
 
+def discover_PNGCAM_links(
+    base_url: str,
+    allowed_domains: List[str],
+    timeout: int = 15,
+    visited: Optional[Set[str]] = None,
+    session: Optional[requests.Session] = None,
+) -> List[Tuple[str, str]]:
+
+    if visited is None:
+        visited = set()
+
+    if base_url in visited:
+        return []
+
+    visited.add(base_url)
+
+    if session is None:
+        session = create_session()
+
+    try:
+        response = session.get(
+            base_url,
+            headers=DEFAULT_HEADERS,
+            timeout=timeout
+        )
+        response.raise_for_status()
+    except requests.RequestException as e:
+        print(f"[discover_links] Error accediendo a {base_url}: {e}")
+        return []
+
+    content_type = response.headers.get("Content-Type", "")
+
+    if "text/html" not in content_type:
+        return []
+
+    soup = BeautifulSoup(response.text, "html.parser")
+
+    discovered: Set[Tuple[str, str]] = set()
+
+    for tag in soup.find_all("a", href=True):
+        raw_href = tag["href"].strip()
+
+        if not raw_href:
+            continue
+
+        if raw_href.startswith(("mailto:", "tel:")):
+            continue
+
+        if raw_href.startswith("blank:#"):
+            raw_href = raw_href.replace("blank:#", "")
+
+        absolute_url = urljoin(base_url, raw_href)
+        absolute_url = absolute_url.split("#")[0].rstrip("/")
+
+        parsed = urlparse(absolute_url)
+
+        if parsed.netloc not in allowed_domains:
+            continue
+
+        if parsed.scheme not in ("http", "https"):
+            continue
+
+        lower_url = absolute_url.lower()
+
+        if lower_url.endswith((
+            ".jpg", ".jpeg", ".png", ".gif",
+            ".svg", ".css", ".js",
+            ".ico", ".zip", ".rar",
+            ".mp4", ".mp3"
+        )):
+            continue
+
+        if any(x in lower_url for x in ["login", "signup", "register", "logout"]):
+            continue
+
+        title = None
+        parent_p = tag.find_parent("p")
+
+        if parent_p:
+
+            strong = parent_p.find("strong")
+            if strong:
+                title = strong.get_text(strip=True)
+
+            if not title:
+                texts = []
+                for content in parent_p.contents:
+                    if content == tag:
+                        break
+                    if isinstance(content, NavigableString):
+                        texts.append(content.strip())
+
+                title_candidate = " ".join(t for t in texts if t)
+                if title_candidate:
+                    title = title_candidate
+
+        if not title:
+            title = tag.get_text(strip=True)
+
+        if not title:
+            title = absolute_url
+
+        discovered.add((title, absolute_url))
+
+    print(f"[discover_links] {len(discovered)} URLs descubiertas desde {base_url}")
+
+    return sorted(discovered)
+
+
+
 def discover_links(
     base_url: str,
     allowed_domains: List[str],
     timeout: int = 15,
     visited: Optional[Set[str]] = None,
     session: Optional[requests.Session] = None,
-) -> List[str]:
+) -> List[Tuple[str, str]]:
     """
-    Descubre y devuelve URLs potencialmente documentales
-    a partir de una página base.
+    Descubre y devuelve URLs junto con su título descriptivo.
 
     - Filtra por dominios permitidos
     - Elimina fragmentos (#)
     - Descarta enlaces no documentales
-    - Devuelve URLs únicas
+    - Devuelve URLs únicas con título
+    - Extrae título desde <strong> dentro del <p>
     - Soporte de subdominios
     - Validación de Content-Type (solo HTML)
     - Normalización de URLs
@@ -62,6 +172,7 @@ def discover_links(
     - Soporte de retries con session
     """
 
+    
     if visited is None:
         visited = set()
 
@@ -89,14 +200,10 @@ def discover_links(
     if "text/html" not in content_type:
         print(f"[discover_links] Contenido no HTML en {base_url}")
         return []
-    
-    #print("response")
-    
-    #print(response.text)
 
     soup = BeautifulSoup(response.text, "html.parser")
 
-    discovered: Set[str] = set()
+    discovered: Set[Tuple[str, str]] = set()
 
     for tag in soup.find_all("a", href=True):
         raw_href = tag["href"].strip()
@@ -114,7 +221,7 @@ def discover_links(
         # Normalizar a URL absoluta
         absolute_url = urljoin(base_url, raw_href)
 
-        # Quitar fragmentos (#algo)
+        # Quitar fragmentos
         absolute_url = absolute_url.split("#")[0]
 
         # Normalizar trailing slash
@@ -122,17 +229,14 @@ def discover_links(
 
         parsed = urlparse(absolute_url)
 
-        # Validar dominio permitido
         if parsed.netloc not in allowed_domains:
             continue
 
-        # Ignorar esquemas no HTTP
         if parsed.scheme not in ("http", "https"):
             continue
 
         lower_url = absolute_url.lower()
 
-        # Filtrar extensiones irrelevantes
         if lower_url.endswith((
             ".jpg", ".jpeg", ".png", ".gif",
             ".svg", ".css", ".js",
@@ -141,15 +245,29 @@ def discover_links(
         )):
             continue
 
-        # Filtrar rutas no útiles típicas
         if any(x in lower_url for x in ["login", "signup", "register", "logout"]):
             continue
 
-        discovered.add(absolute_url)
+        title = None
+
+        parent_p = tag.find_parent("p")
+        if parent_p:
+            strong = parent_p.find("strong")
+            if strong:
+                title = strong.get_text(strip=True)
+
+        if not title:
+            title = tag.get_text(strip=True)
+
+        if not title:
+            title = absolute_url
+
+        discovered.add((title, absolute_url))
 
     print(f"[discover_links] {len(discovered)} URLs descubiertas desde {base_url}")
 
     return sorted(discovered)
+
 
 
 from typing import List, Set
@@ -174,7 +292,6 @@ def normalize_urls_normativa_PNGCAM(url: str) -> str:
 
     # Caso: ya tiene /texto pero con sufijo dinámico
     if "/texto" in tail:
-        # Nos quedamos hasta '/texto'
         before_texto = tail.split("/texto")[0]
         return base + before_texto + "/texto"
 
@@ -206,21 +323,22 @@ def is_relevant_url(url: str) -> bool:
     )
 
 
+
 def get_urls_normativa_PNGCAM(
     base_url: str,
     allowed_domains: List[str],
     visited: Set[str] = None
-) -> List[str]:
+) -> List[Tuple[str, str]]:
 
-    raw_urls = discover_links(
+    raw_items = discover_PNGCAM_links(
         base_url=base_url,
         allowed_domains=allowed_domains,
         visited=visited
     )
 
-    processed: Set[str] = set()
+    processed: Set[Tuple[str, str]] = set()
 
-    for url in raw_urls:
+    for title, url in raw_items:
 
         if not is_valid_special_url(url):
             continue
@@ -230,13 +348,14 @@ def get_urls_normativa_PNGCAM(
 
         parsed = urlparse(url)
 
-        # Normalización específica
         normalized_url = url
 
+        # Normalización específica
         if "argentina.gob.ar" in parsed.netloc:
             normalized_url = normalize_urls_normativa_PNGCAM(url)
 
-        processed.add(normalized_url)
+        processed.add((title, normalized_url))
+        print(f"Procesada {processed}")
 
     print(f"[get_normativa_urls] {len(processed)} URLs finales procesadas")
 

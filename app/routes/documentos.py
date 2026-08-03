@@ -28,7 +28,6 @@ async def subir_archivo(
     )
 
     if existing:
-        print("Exists")
         return {
             "status": "already_exists",
             "document_id": existing["document_id"],

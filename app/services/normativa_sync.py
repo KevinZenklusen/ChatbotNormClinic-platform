@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 import hashlib
 import uuid
 from fastapi import BackgroundTasks
+from typing import Tuple
 import requests
 from requests.exceptions import RequestException
 from app.services.web_crawler import discover_links, get_urls_normativa_PNGCAM
@@ -12,6 +13,10 @@ from app.ingestion.generate_embeddings import create_and_store_embeddings
 
 
 def sync_normativa_legisalud(user_uid: str, background_tasks: BackgroundTasks):
+    """
+    Sync específico para legisalud,
+    aplicando reglas especiales de filtrado y normalización.
+    """
     urls = discover_links(LEGISALUD_URL, ALLOWED_DOMAINS)
 
     for url in urls:
@@ -21,7 +26,10 @@ def sync_normativa_legisalud(user_uid: str, background_tasks: BackgroundTasks):
             print(f"[CRITICAL] Error de proceamiento inesperado {url}: {e}")
 
 
-def process_single_url(url: str, user_uid: str, background_tasks):
+def process_single_url(url_data: Tuple[str, str], user_uid: str, background_tasks):
+
+    title = url_data[0]
+    url = url_data[1]
 
     print(f"Descargando datos desde {url}")
     try:
@@ -59,7 +67,8 @@ def process_single_url(url: str, user_uid: str, background_tasks):
             blob_url=blob_url,
             source_url=url,
             created_at=created_at,
-            status = "UPLOADED"
+            status = "UPLOADED",
+            title=title
         )
 
         background_tasks.add_task(
@@ -159,9 +168,35 @@ def sync_normativa_PNGCAM(user_uid: str, background_tasks: BackgroundTasks):
             print(f"[CRITICAL] Error de procesamiento inesperado {url}: {e}")
 
 
-def sync_normativa_from_single_url(user_uid: str, url: str, background_tasks: BackgroundTasks):
+def sync_normativa_from_single_url(user_uid: str, url: Tuple[str, str], background_tasks: BackgroundTasks):
 
     try:
         process_single_url(url, user_uid, background_tasks)
     except Exception as e:
         print(f"[CRITICAL] Error de proceamiento inesperado {url}: {e}")
+
+
+def generate_embeddings_for_all_documents():
+    """
+    Esta función sirve para generar embeddings en todos los documentos cargados
+    en los que haya fallado la generación de embeddings (ERROR)
+    """ 
+
+    document_ids = []
+
+    with database._conn() as conn, conn.cursor() as cur:
+        cur.execute("SELECT id FROM documents where status ILIKE '%ERROR%';")
+        document_ids = [row[0] for row in cur.fetchall()]
+
+    total = len(document_ids)
+    print(f"Total documentos: {total}")
+
+    for i, doc_id in enumerate(document_ids, start=1):
+        try:
+            create_and_store_embeddings(document_id=str(doc_id))
+
+            if i % 50 == 0:
+                print(f"Procesados {i}/{total}")
+
+        except Exception as e:
+            print(f"[ERROR] document_id {doc_id}: {e}")
