@@ -24,7 +24,7 @@ RUN mkdir -p /code/.cache && chown -R appuser:appuser /code/.cache
 
 USER appuser
 RUN python -c "from sentence_transformers import SentenceTransformer; \
-    SentenceTransformer('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2', cache_folder='/code/.cache')"
+    SentenceTransformer('PlanTL-GOB-ES/roberta-base-biomedical-es', cache_folder='/code/.cache')"
 
 USER root
 COPY ./app /code/app
